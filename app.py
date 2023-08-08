@@ -1,51 +1,32 @@
-
-import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.utils import executor
-import requests
+from dotenv import load_dotenv
+import os
+import asyncio
+from gif_search_copy import search_gifs
 
-bot_token = 'Token'
-bot = Bot(token=bot_token)
-dp = Dispatcher(bot)
-dp.middleware.setup(LoggingMiddleware())
+load_dotenv()
+bot = Bot(os.getenv('BOT_TOKEN'))
+dp = Dispatcher(bot=bot)
+
 
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
-    await message.reply("Hi! I'm a GIF search bot. Please enter an emotion")
+async def search_start(message: types.Message):
+    await message.answer("""Hello, I'm a GIF searcher! Please, enter
+                        a search word""")
 
-def search_gifs(search_word):
-    api_key = 'Key'
-    endpoint = 'http://api.giphy.com/v1/gifs/search'
-    params = {
-        'api_key': api_key,
-        'q': search_word,
-        'limit': 25
-    }
-    try:
-        response = requests.get(endpoint, params=params)
-        response.raise_for_status()
-        data = response.json()
-        gif_links = [gif['images']['original']['url'] for gif in data['data']]
-        return gif_links
-    except requests.exceptions.RequestException as e:
-        print(f'Error fetching GIFs:{e}')
-        return []
-    
-async def gif_search(message: types.Message):
+
+@dp.message_handler()
+async def user_word(message: types.Message):
     search_word = message.text
-    gifs = search_gifs(search_word)
-    if gifs:
-       gif_text = "\n".join(gifs)
-       reply_text = f'Here are your GIFs: \n{gif_text}'
-       await message.reply(reply_text)
-    else:
-        await message.reply("No GIFs found")
 
-dp.register_message_handler(start, commands="start")
-dp.register_message_handler(gif_search, content_types=types.ContentTypes.TEXT)
+    gif_urls = search_gifs(search_word)
+
+    for gif_url in gif_urls:
+        await message.answer(gif_url)
+
+
+async def main():
+    await dp.start_polling(bot)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    executor.start_polling(dp, skip_updates=True)
-
+    asyncio.run(main())
